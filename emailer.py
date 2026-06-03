@@ -20,7 +20,7 @@ def _earnings_row(item: dict) -> str:
     color = DIRECTION_COLORS.get(s["direction"], "#333")
     return f"""
       <tr>
-        <td><b>{a['symbol']}</b><br><span style="color:#666;font-size:11px">{item.get('timing','')}</span></td>
+        <td><b>{a['symbol']}</b><br><span style="color:#444;font-size:11px">{a.get('company_name','')}</span><br><span style="color:#999;font-size:10px">{item.get('timing','')}</span></td>
         <td>${a['current_price']}</td>
         <td>{a['return_3m_pct']}%</td>
         <td>{a['momentum_20d_pct']}%</td>
@@ -132,14 +132,14 @@ class ReportEmailer:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject or f"Pre-Market Scanner — {date.today().isoformat()}"
         msg["From"] = EMAIL_FROM
-        msg["To"] = EMAIL_TO
+        msg["To"] = ", ".join(EMAIL_TO)
         msg.attach(MIMEText(html, "html"))
 
         try:
             with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as s:
                 s.starttls()
                 s.login(EMAIL_FROM, EMAIL_PASSWORD)
-                s.sendmail(EMAIL_FROM, [EMAIL_TO], msg.as_string())
-            print("[email] sent.")
+                s.sendmail(EMAIL_FROM, EMAIL_TO, msg.as_string())
+            print(f"[email] sent to {len(EMAIL_TO)} recipient(s).")
         except Exception as e:
             print(f"[email] send failed: {e}")
