@@ -10,7 +10,7 @@ FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "")
 # --- Email (SMTP) ---
 EMAIL_FROM = os.getenv("EMAIL_FROM", "")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "")  # Gmail App Password
-EMAIL_TO = os.getenv("EMAIL_TO", "")
+EMAIL_TO = [e.strip() for e in os.getenv("EMAIL_TO", "").split(";") if e.strip()]
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 

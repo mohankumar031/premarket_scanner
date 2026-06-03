@@ -24,6 +24,12 @@ class TechnicalAnalyzer:
         if hist is None or hist.empty or len(hist) < 25:
             return None
 
+        # Company name (gracefully falls back to symbol if unavailable)
+        try:
+            company_name = tkr.info.get("shortName") or tkr.info.get("longName") or symbol
+        except Exception:
+            company_name = symbol
+
         # Trim to the actual lookback window
         hist = hist.tail(LOOKBACK_DAYS) if len(hist) > LOOKBACK_DAYS else hist
 
@@ -77,6 +83,7 @@ class TechnicalAnalyzer:
 
         return {
             "symbol": symbol,
+            "company_name": company_name,
             "current_price": round(current_price, 2),
             "return_3m_pct": round(return_3m, 2),
             "volatility_pct": round(volatility, 2),
