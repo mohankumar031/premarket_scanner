@@ -17,7 +17,8 @@ from analyzer import TechnicalAnalyzer
 from calendar_fetcher import CalendarFetcher
 from config import CSV_DIR, RUN_TIME, SAVE_CSV, TIMEZONE
 from emailer import ReportEmailer
-from predictor import SignalScorer
+from market_movers import MarketMoversScanner
+from predictor import NextDayPredictor, SignalScorer
 
 
 def _score_earnings_list(earnings: list[dict], analyzer, scorer) -> list[dict]:
@@ -41,13 +42,32 @@ def _score_earnings_list(earnings: list[dict], analyzer, scorer) -> list[dict]:
     return scored
 
 
+def _enrich_movers_with_predictions(movers: dict, analyzer: TechnicalAnalyzer,
+                                     predictor: NextDayPredictor) -> dict:
+    """Attach technical analysis + next-day prediction to each mover entry."""
+    for key in ("gainers", "losers"):
+        enriched = []
+        for item in movers.get(key, []):
+            sym = item["symbol"]
+            analysis = analyzer.analyze(sym)
+            if analysis:
+                item["prediction"] = predictor.predict(analysis)
+            else:
+                item["prediction"] = {}
+            enriched.append(item)
+        movers[key] = enriched
+    return movers
+
+
 def run_once():
     print(f"\n=== Pre-Market Scanner :: {datetime.now().isoformat(timespec='seconds')} ===")
 
-    fetcher = CalendarFetcher()
-    analyzer = TechnicalAnalyzer()
-    scorer = SignalScorer()
-    emailer = ReportEmailer()
+    fetcher   = CalendarFetcher()
+    analyzer  = TechnicalAnalyzer()
+    scorer    = SignalScorer()
+    predictor = NextDayPredictor()
+    emailer   = ReportEmailer()
+    mover_scanner = MarketMoversScanner()
 
     print("[fetch] pulling earnings calendars...")
     earnings_by_exch = fetcher.earnings_today()
@@ -59,6 +79,19 @@ def run_once():
     print(f"[fetch] NASDAQ IPOs: {len(ipos_by_exch['NASDAQ'])}, "
           f"TSX IPOs: {len(ipos_by_exch['TSX'])}")
 
+    # --- Previous day movers ---
+    print("[movers] scanning previous day movers...")
+    us_movers  = mover_scanner.get_us_movers()
+    tsx_movers = mover_scanner.get_tsx_movers()
+    print(f"[movers] US: {len(us_movers['gainers'])} gainers, {len(us_movers['losers'])} losers")
+    print(f"[movers] TSX: {len(tsx_movers['gainers'])} gainers, {len(tsx_movers['losers'])} losers")
+
+    print("[movers] enriching movers with next-day predictions...")
+    us_movers  = _enrich_movers_with_predictions(us_movers,  analyzer, predictor)
+    tsx_movers = _enrich_movers_with_predictions(tsx_movers, analyzer, predictor)
+    movers_by_exch = {"US": us_movers, "TSX": tsx_movers}
+
+    # --- Earnings analysis ---
     scored_by_exch: dict[str, list[dict]] = {}
     for exch, lst in earnings_by_exch.items():
         print(f"[analyze] {exch} ({len(lst)} symbols)...")
@@ -90,7 +123,7 @@ def run_once():
         print(f"[csv] wrote {path}")
 
     # --- Build & send report ---
-    html = emailer.build_html(scored_by_exch, ipos_by_exch)
+    html = emailer.build_html(scored_by_exch, ipos_by_exch, movers_by_exch)
     emailer.send(html)
 
     if SAVE_CSV:
