@@ -2,9 +2,11 @@ name: Daily Pre-Market Scan
 
 on:
   schedule:
-    # 12:00 UTC = 7:00 AM EST (Mon-Fri).
+    # 11:00 UTC = 7:00 AM EDT (UTC-4, Mar-Nov) = 6:00 AM EST (UTC-5, Nov-Mar).
+    # Uses EDT offset year-round so the email always arrives at 7 AM during
+    # US trading season (Mar-Nov). Arrives 1 hour early in winter (Nov-Mar).
     # Note: GitHub may delay scheduled runs by 5-15 min during peak load.
-    - cron: "0 12 * * 1-5"
+    - cron: "0 11 * * 1-5"
   workflow_dispatch:  # allows manual trigger from the Actions tab
 
 jobs:
